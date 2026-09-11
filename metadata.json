@@ -1,0 +1,7 @@
+{
+  "name": "सुरक्षा साथी (Suraksha Sathi)",
+  "description": "Decentralized Digital Vault, NFT Asset Ownership, & AI Document Verification System with Smart Contract-enforced RBAC and AI Tamper Detection",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
