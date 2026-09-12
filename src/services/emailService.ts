@@ -6,6 +6,10 @@ const EMAIL_STORAGE_KEY = 'suraksha_sathi_dispatched_emails_v2';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://suraksha-saathi-01.onrender.com';
 const PORTAL_URL = window.location.origin || 'https://surakshasathi.gov.in';
 
+export const createMailtoUrl = (email: string, subject: string, body: string): string => {
+  return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
 export const generateSecureUID = (role: UserRole): string => {
   const prefix = role === 'AUDITOR' ? 'AUD' : role === 'OFFICER' ? 'OFF' : 'USR';
   const randomNum = Math.floor(1000 + Math.random() * 9000);
