@@ -55,6 +55,7 @@ export const recordDispatchedEmail = (
   return newEmail;
 };
 
+// Connected to Render Backend & MongoDB
 export const sendOnboardingEmailMock = async (params: {
   senderRole: string;
   senderEmail: string;
@@ -66,9 +67,6 @@ export const sendOnboardingEmailMock = async (params: {
   generatedPassword: string;
   extraDetails?: string;
 }): Promise<DispatchedEmail> => {
-  // Simulate network dispatch delay for NodeMailer
-  await new Promise((resolve) => setTimeout(resolve, 600));
-
   const roleTitle = params.recipientRole === 'AUDITOR' ? 'Statutory Auditor' : 'Verification Officer';
   const subject = `सुरक्षा साथी (Suraksha Sathi): Official Credentials for ${roleTitle}`;
 
@@ -97,9 +95,7 @@ Regards,
 Security Operations Center (SOC)
 सुरक्षा साथी (Suraksha Sathi) Sovereign System`;
 
-  const newEmail: DispatchedEmail = {
-    id: `email-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-    timestamp: new Date().toISOString(),
+  const payload = {
     senderRole: params.senderRole,
     senderEmail: params.senderEmail,
     recipientEmail: params.recipientEmail,
@@ -113,8 +109,38 @@ Security Operations Center (SOC)
     status: 'DELIVERED',
   };
 
+  // 1. Render Live Backend Ko Hit Karein
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      const serverData = json.data;
+      const dispatched: DispatchedEmail = {
+        id: serverData._id || `email-${Date.now()}`,
+        timestamp: serverData.timestamp || new Date().toISOString(),
+        ...payload,
+      };
+      // Backup to localStorage for sync UI
+      const existing = getDispatchedEmails();
+      saveDispatchedEmails([dispatched, ...existing]);
+      return dispatched;
+    }
+  } catch (err) {
+    console.warn('Backend server unavailable, falling back to client store', err);
+  }
+
+  // Fallback local save agar server unavailable ho
+  const newEmail: DispatchedEmail = {
+    id: `email-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    timestamp: new Date().toISOString(),
+    ...payload,
+  };
   const existing = getDispatchedEmails();
-  const updated = [newEmail, ...existing];
-  saveDispatchedEmails(updated);
+  saveDispatchedEmails([newEmail, ...existing]);
   return newEmail;
 };
