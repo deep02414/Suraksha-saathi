@@ -2,6 +2,10 @@ import { DispatchedEmail, UserRole } from '../types';
 
 const EMAIL_STORAGE_KEY = 'suraksha_sathi_dispatched_emails_v2';
 
+// Dynamic API and Portal URL Resolution
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://suraksha-saathi-01.onrender.com';
+const PORTAL_URL = window.location.origin || 'https://surakshasathi.gov.in';
+
 export const generateSecureUID = (role: UserRole): string => {
   const prefix = role === 'AUDITOR' ? 'AUD' : role === 'OFFICER' ? 'OFF' : 'USR';
   const randomNum = Math.floor(1000 + Math.random() * 9000);
@@ -76,7 +80,7 @@ Official Login ID / UID: ${params.generatedUid}
 Security Password: ${params.generatedPassword}
 Official Email: ${params.recipientEmail}
 ${params.recipientCity ? `Designated City / Station: ${params.recipientCity}\n` : ''}${params.extraDetails ? `Department: ${params.extraDetails}\n` : ''}
-Portal URL: https://surakshasathi.gov.in/officer-login
+Portal URL: ${PORTAL_URL}/officer-login
 Authorized By: ${params.senderRole} (${params.senderEmail})
 
 INSTRUCTIONS FOR FIRST LOGIN:
@@ -108,17 +112,5 @@ Security Operations Center (SOC)
   const existing = getDispatchedEmails();
   const updated = [newEmail, ...existing];
   saveDispatchedEmails(updated);
-
   return newEmail;
 };
-
-/**
- * Creates a mailto: link for the dispatched email so the sender can send it
- * directly through their device's default email client (Gmail, Outlook, etc.)
- */
-export const createMailtoUrl = (email: DispatchedEmail): string => {
-  const subject = encodeURIComponent(email.subject);
-  const body = encodeURIComponent(email.previewBody);
-  return `mailto:${email.recipientEmail}?subject=${subject}&body=${body}`;
-};
-
