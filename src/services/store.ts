@@ -8,13 +8,16 @@ import {
   UserUploadedDocument,
 } from '../types';
 
+// Live Render Backend API Base URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://suraksha-saathi-01.onrender.com';
+
 const USERS_STORAGE_KEY = 'suraksha_sathi_users_v3';
 const ASSETS_STORAGE_KEY = 'suraksha_sathi_assets_v2';
 const TICKETS_STORAGE_KEY = 'suraksha_sathi_tickets_v2';
 const AUDIT_STORAGE_KEY = 'suraksha_sathi_audit_logs_v2';
 const CURRENT_USER_KEY = 'suraksha_sathi_current_user_v3';
 
-// Exclusive Master Sovereign Admin credential as specified
+// Master Sovereign Admin
 export const MASTER_ADMIN: UserProfile = {
   id: 'admin-master-deep123',
   uid: 'Deep123',
@@ -33,11 +36,8 @@ export const MASTER_ADMIN: UserProfile = {
   directMessages: [],
 };
 
-// Initial pre-configured user list contains ONLY the Sovereign Admin.
-// All other RBAC roles (Auditor, Verification Officer) and Citizens register themselves or are onboarded dynamically.
 export const INITIAL_USERS: UserProfile[] = [MASTER_ADMIN];
 
-// Initial vault assets
 export const INITIAL_ASSETS: VaultAsset[] = [
   {
     id: 'asset-sbi-1',
@@ -47,7 +47,7 @@ export const INITIAL_ASSETS: VaultAsset[] = [
     contractAddress: '0x49B35A02e0717281D52309C13e20A914f6bA4011',
     tokenStandard: 'ERC-721',
     ownerDid: 'did:suraksha:in:citizen-reg-771',
-    ownerWallet: '0x71C3b784918ef901239841029384102938401923',
+    ownerWallet: '0x71C3b784918ef901239841029384019283401923',
     issuerDid: 'did:suraksha:in:bank-sbi-corp',
     issuerName: 'State Bank of India (SBI Corp Treasury)',
     documentHash: '0x3c71ea4019a82fbc789b52110c49ad0e6b18d7f2a89c09ef01a87b32c5ef2941',
@@ -74,7 +74,7 @@ export const INITIAL_ASSETS: VaultAsset[] = [
     contractAddress: '0x49B35A02e0717281D52309C13e20A914f6bA4011',
     tokenStandard: 'ERC-721',
     ownerDid: 'did:suraksha:in:citizen-reg-771',
-    ownerWallet: '0x71C3b784918ef901239841029384102938401923',
+    ownerWallet: '0x71C3b784918ef901239841029384019283401923',
     issuerDid: 'did:suraksha:in:univ-iitd-academic',
     issuerName: 'Indian Institute of Technology Delhi (Registrar)',
     documentHash: '0x4b7f0029ad14c990218ef83a62174c8b02194a72d3e198bca40291f83c670a1e',
@@ -110,35 +110,39 @@ export const INITIAL_AUDIT_LOGS: SystemAuditLog[] = [
   },
 ];
 
-// LocalStorage helpers
+// Helper to check Backend Health Status
+export const checkBackendStatus = async (): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/health`);
+    const data = await res.json();
+    return data.status === 'Server is working!';
+  } catch (error) {
+    console.warn('Backend unavailable, falling back to LocalStorage.', error);
+    return false;
+  }
+};
+
+// LocalStorage loaders & fallbacks
 export const loadUsers = (): UserProfile[] => {
   try {
     const raw = localStorage.getItem(USERS_STORAGE_KEY);
     if (raw) {
       let parsed: UserProfile[] = JSON.parse(raw);
-      // Ensure master admin is always present and updated to exact specifications
       const adminIdx = parsed.findIndex(
         (u) => u.uid === 'Deep123' || u.email === 'deepsingh02414@gmail.com'
       );
       if (adminIdx >= 0) {
-        parsed[adminIdx] = {
-          ...parsed[adminIdx],
-          ...MASTER_ADMIN,
-        };
+        parsed[adminIdx] = { ...parsed[adminIdx], ...MASTER_ADMIN };
       } else {
         parsed = [MASTER_ADMIN, ...parsed];
       }
-
-      // Filter out any stale mock demo accounts from previous versions
-      const cleaned = parsed.filter(
+      return parsed.filter(
         (u) =>
           u.uid !== 'ADM-DEL-01' &&
           u.name !== 'Rajesh Sharma, IAS (Joint Secretary)' &&
           u.name !== 'Vikram Mehta (Citizen / Investor)' &&
           u.name !== 'HHFG'
       );
-
-      return cleaned;
     }
   } catch (e) {
     console.error('Error loading users', e);
@@ -246,9 +250,6 @@ export const setCurrentUserStore = (user: UserProfile | null) => {
   }
 };
 
-/**
- * Administrative action: Toggle block/unblock status for any user
- */
 export const toggleBlockUserInStore = (uid: string, block: boolean): UserProfile[] => {
   const users = loadUsers();
   const updated = users.map((u) => {
@@ -265,9 +266,6 @@ export const toggleBlockUserInStore = (uid: string, block: boolean): UserProfile
   return updated;
 };
 
-/**
- * Administrative action: Delete user account
- */
 export const deleteUserFromStore = (uid: string): UserProfile[] => {
   const users = loadUsers();
   const filtered = users.filter((u) => u.uid !== uid);
@@ -275,9 +273,6 @@ export const deleteUserFromStore = (uid: string): UserProfile[] => {
   return filtered;
 };
 
-/**
- * Administrative action: Update user profile (e.g. set password, status, details)
- */
 export const updateUserInStore = (uid: string, updates: Partial<UserProfile>): UserProfile[] => {
   const users = loadUsers();
   const updated = users.map((u) => {
@@ -290,9 +285,6 @@ export const updateUserInStore = (uid: string, updates: Partial<UserProfile>): U
   return updated;
 };
 
-/**
- * Send direct administrative message to an officer/auditor/user
- */
 export const sendDirectMessage = (
   recipientUid: string,
   message: DirectMessage
@@ -311,9 +303,6 @@ export const sendDirectMessage = (
   return updated;
 };
 
-/**
- * Add an uploaded document to user profile
- */
 export const addDocumentToUserProfile = (
   userUid: string,
   doc: UserUploadedDocument
@@ -332,9 +321,6 @@ export const addDocumentToUserProfile = (
   return updated;
 };
 
-/**
- * Add a registered crypto wallet to user profile
- */
 export const addWalletToUserProfile = (
   userUid: string,
   walletAddress: string
