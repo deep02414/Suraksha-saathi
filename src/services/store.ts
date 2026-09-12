@@ -122,7 +122,34 @@ export const checkBackendStatus = async (): Promise<boolean> => {
   }
 };
 
-// LocalStorage loaders & fallbacks
+// Async MongoDB Fetching Integration
+export const loadUsersAsync = async (): Promise<UserProfile[]> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/users`);
+    if (res.ok) {
+      const dbUsers = await res.json();
+      const mappedDbUsers: UserProfile[] = dbUsers.map((u: any) => ({
+        id: u._id || u.id,
+        uid: u.generatedUid || u.uid,
+        email: u.recipientEmail || u.email,
+        name: u.recipientName || u.name,
+        role: u.recipientRole || u.role,
+        password: u.generatedPassword || u.password,
+        status: u.status || 'ACTIVE',
+        city: u.recipientCity || u.city,
+        createdAt: u.timestamp || new Date().toISOString(),
+      }));
+
+      const combined = [MASTER_ADMIN, ...mappedDbUsers];
+      saveUsers(combined);
+      return combined;
+    }
+  } catch (err) {
+    console.warn('Failed to load users from Database, loading local cache.', err);
+  }
+  return loadUsers();
+};
+
 export const loadUsers = (): UserProfile[] => {
   try {
     const raw = localStorage.getItem(USERS_STORAGE_KEY);
@@ -136,13 +163,7 @@ export const loadUsers = (): UserProfile[] => {
       } else {
         parsed = [MASTER_ADMIN, ...parsed];
       }
-      return parsed.filter(
-        (u) =>
-          u.uid !== 'ADM-DEL-01' &&
-          u.name !== 'Rajesh Sharma, IAS (Joint Secretary)' &&
-          u.name !== 'Vikram Mehta (Citizen / Investor)' &&
-          u.name !== 'HHFG'
-      );
+      return parsed;
     }
   } catch (e) {
     console.error('Error loading users', e);
