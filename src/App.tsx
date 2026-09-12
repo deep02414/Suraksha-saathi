@@ -10,6 +10,7 @@ import {
 } from './types';
 import {
   loadUsers,
+  loadUsersAsync, // Async backend API fetcher import kiya
   saveUsers,
   loadAssets,
   saveAssets,
@@ -52,7 +53,7 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<SystemAuditLog[]>([]);
   const [dispatchedEmails, setDispatchedEmails] = useState<DispatchedEmail[]>([]);
 
-  // Navigation State: 'OVERVIEW' | 'CITIZEN_LOGIN' | 'OFFICER_LOGIN' | 'CITIZEN' | 'RBAC' | 'TAMPER_DETECTION' | 'VERIFY_ASSET' | 'PUBLIC_LEDGER'
+  // Navigation State
   const [activeView, setActiveView] = useState<string>('OVERVIEW');
 
   // Modals State
@@ -62,34 +63,47 @@ export default function App() {
   const [isEmailsOpen, setIsEmailsOpen] = useState(false);
   const [isContractOpen, setIsContractOpen] = useState(false);
 
-  // Load initial data
+  // Load initial data (MongoDB Backend Fetch Included)
   useEffect(() => {
-    const loadedUsers = loadUsers();
-    const loadedAssets = loadAssets();
-    const loadedTickets = loadTickets();
-    const loadedAuditLogs = loadAuditLogs();
-    const loadedEmails = getDispatchedEmails();
-    const activeUser = getCurrentUser();
+    const fetchInitialData = async () => {
+      // 1. First fetch live users from MongoDB backend API
+      let loadedUsers: UserProfile[] = [];
+      try {
+        loadedUsers = await loadUsersAsync();
+      } catch (err) {
+        console.warn('Backend fetch failed, falling back to local storage:', err);
+        loadedUsers = loadUsers();
+      }
 
-    setUsersList(loadedUsers);
-    setVaultAssets(loadedAssets);
-    setEscalationTickets(loadedTickets);
-    setAuditLogs(loadedAuditLogs);
-    setDispatchedEmails(loadedEmails);
-    setCurrentUser(activeUser);
+      // 2. Load other local state datasets
+      const loadedAssets = loadAssets();
+      const loadedTickets = loadTickets();
+      const loadedAuditLogs = loadAuditLogs();
+      const loadedEmails = getDispatchedEmails();
+      const activeUser = getCurrentUser();
 
-    // If an active session is saved, route appropriately; otherwise default to Homepage ('OVERVIEW')
-    if (activeUser?.role === 'USER') {
-      setActiveView('CITIZEN');
-    } else if (
-      activeUser?.role === 'ADMIN' ||
-      activeUser?.role === 'OFFICER' ||
-      activeUser?.role === 'AUDITOR'
-    ) {
-      setActiveView('RBAC');
-    } else {
-      setActiveView('OVERVIEW');
-    }
+      setUsersList(loadedUsers);
+      setVaultAssets(loadedAssets);
+      setEscalationTickets(loadedTickets);
+      setAuditLogs(loadedAuditLogs);
+      setDispatchedEmails(loadedEmails);
+      setCurrentUser(activeUser);
+
+      // Route based on active session
+      if (activeUser?.role === 'USER') {
+        setActiveView('CITIZEN');
+      } else if (
+        activeUser?.role === 'ADMIN' ||
+        activeUser?.role === 'OFFICER' ||
+        activeUser?.role === 'AUDITOR'
+      ) {
+        setActiveView('RBAC');
+      } else {
+        setActiveView('OVERVIEW');
+      }
+    };
+
+    fetchInitialData();
   }, []);
 
   // Keyboard shortcut: ⌘K / Ctrl+K for search
@@ -162,7 +176,6 @@ export default function App() {
     const updated = [newAsset, ...vaultAssets];
     handleUpdateAssets(updated);
 
-    // Audit log
     const log: SystemAuditLog = {
       id: `log-${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -246,13 +259,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#00BFFF] selection:text-slate-950">
-      {/* 1. Official Government Top Bar */}
       <GovernmentTopBar
         currentUser={currentUser}
         onNavigate={(view) => setActiveView(view)}
       />
 
-      {/* 2. Primary Header Navbar */}
       <HeaderNavbar
         currentUser={currentUser}
         activeView={activeView}
@@ -263,9 +274,7 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      {/* 3. Main Dynamic Content View */}
       <div className="flex-1 w-full">
-        {/* HOMEPAGE VIEW */}
         {activeView === 'OVERVIEW' && (
           <HomePageView
             currentUser={currentUser}
@@ -277,7 +286,6 @@ export default function App() {
           />
         )}
 
-        {/* DEDICATED CITIZEN LOGIN PAGE */}
         {activeView === 'CITIZEN_LOGIN' && (
           <CitizenLoginView
             onLoginSuccess={handleLoginSuccess}
@@ -290,7 +298,6 @@ export default function App() {
           />
         )}
 
-        {/* DEDICATED OFFICER LOGIN PAGE */}
         {activeView === 'OFFICER_LOGIN' && (
           <OfficerLoginView
             onLoginSuccess={handleLoginSuccess}
@@ -301,7 +308,6 @@ export default function App() {
           />
         )}
 
-        {/* CITIZEN PORTAL */}
         {activeView === 'CITIZEN' && (
           <CitizenPortalView
             currentUser={
@@ -335,7 +341,6 @@ export default function App() {
           />
         )}
 
-        {/* RBAC COMMAND PORTAL */}
         {activeView === 'RBAC' && (
           <RBACCommandPortal
             currentUser={
@@ -368,7 +373,6 @@ export default function App() {
           />
         )}
 
-        {/* AI TAMPER DETECTOR & FORENSICS */}
         {activeView === 'TAMPER_DETECTION' && (
           <AITamperDetectorView
             currentUser={currentUser}
@@ -376,12 +380,10 @@ export default function App() {
           />
         )}
 
-        {/* PUBLIC CRYPTOGRAPHIC ASSET VERIFIER */}
         {activeView === 'VERIFY_ASSET' && (
           <PublicAssetVerifierView assets={vaultAssets} />
         )}
 
-        {/* PUBLIC BLOCKCHAIN EXPLORER & AUDIT TRAIL */}
         {activeView === 'PUBLIC_LEDGER' && (
           <BlockchainExplorerView
             assets={vaultAssets}
@@ -390,14 +392,12 @@ export default function App() {
         )}
       </div>
 
-      {/* 4. Official Government Footer with all links active in Blue */}
       <FooterView
         currentUser={currentUser}
         onNavigate={(view) => setActiveView(view)}
         onOpenSmartContractModal={() => setIsContractOpen(true)}
       />
 
-      {/* MODALS */}
       <RegisterAssetModal
         currentUser={
           currentUser || {
